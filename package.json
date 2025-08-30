@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "htaccess": "node scripts/add-htaccess.js",
-    "build:static": "dotenv -e .env.prod -- next build --no-lint && npm run htaccess"
+    "build:static": "next build --no-lint && npm run htaccess"
   },
   "dependencies": {
     "autoprefixer": "^10.4.21",
