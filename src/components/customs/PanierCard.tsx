@@ -1,4 +1,4 @@
-import { Panier, Client } from "@/utils/types";
+import { Panier, Client, Currency } from "@/utils/types";
 import { ShoppingCart, Edit, Trash2, Archive, Eye, User, Package, AlertCircle } from "lucide-react";
 
 const PanierCard = ({
@@ -15,8 +15,23 @@ const PanierCard = ({
     onDelete: () => void;
 }) => {
     const client = typeof panier.client === 'object' ? panier.client as Client : null;
+    const currency = typeof panier.currency === 'object' ? panier.currency as Currency : null;
     const isArchived = panier.statut === false;
     const isEmpty = !panier.lignes || panier.lignes.length === 0;
+
+    const formatCurrency = (amount: number) => {
+        if (currency) {
+            return `${amount.toLocaleString('fr-FR', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+            })} ${currency.symbol}`;
+        }
+        // Fallback si pas de devise
+        return amount.toLocaleString('fr-FR', {
+            style: 'currency',
+            currency: 'EUR'
+        });
+    };
 
     return (
         <div className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all hover:shadow-md ${isArchived ? 'border-gray-300 bg-gray-50' : 'border-gray-200'
@@ -108,20 +123,14 @@ const PanierCard = ({
                         }`}>
                         <div className="text-xs text-gray-500 mb-1">Total HT</div>
                         <div className="font-semibold">
-                            {(panier.totalHT || 0).toLocaleString('fr-FR', {
-                                style: 'currency',
-                                currency: 'USD'
-                            })}
+                            {formatCurrency(panier.totalHT || 0)}
                         </div>
                     </div>
                     <div className={`rounded-lg p-3 ${isArchived ? 'bg-gray-100' : 'bg-gray-50'
                         }`}>
                         <div className="text-xs text-gray-500 mb-1">TVA</div>
                         <div className="font-semibold">
-                            {(panier.totalTVA || 0).toLocaleString('fr-FR', {
-                                style: 'currency',
-                                currency: 'USD'
-                            })}
+                            {formatCurrency(panier.totalTVA || 0)}
                         </div>
                     </div>
                     <div className={`rounded-lg p-3 ${isArchived ? 'bg-blue-100' : 'bg-blue-50'
@@ -130,10 +139,7 @@ const PanierCard = ({
                             }`}>Total TTC</div>
                         <div className={`font-bold ${isArchived ? 'text-blue-700' : 'text-blue-600'
                             }`}>
-                            {(panier.totalTTC || 0).toLocaleString('fr-FR', {
-                                style: 'currency',
-                                currency: 'USD'
-                            })}
+                            {formatCurrency(panier.totalTTC || 0)}
                         </div>
                     </div>
                 </div>

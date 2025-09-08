@@ -1,4 +1,4 @@
-import { Panier, Client } from "@/utils/types";
+import { Panier, Client, Currency } from "@/utils/types";
 import { ShoppingCart, User, Package, Edit, Trash2, Archive, Eye, AlertCircle } from "lucide-react";
 
 const PanierRow = ({
@@ -15,8 +15,23 @@ const PanierRow = ({
     onDelete: () => void;
 }) => {
     const client = typeof panier.client === 'object' ? panier.client as Client : null;
+    const currency = typeof panier.currency === 'object' ? panier.currency as Currency : null;
     const isArchived = panier.statut === false;
     const isEmpty = !panier.lignes || panier.lignes.length === 0;
+
+    const formatCurrency = (amount: number) => {
+        if (currency) {
+            return `${amount.toLocaleString('fr-FR', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+            })} ${currency.symbol}`;
+        }
+        // Fallback si pas de devise
+        return amount.toLocaleString('fr-FR', {
+            style: 'currency',
+            currency: 'EUR'
+        });
+    };
 
     return (
         <tr className={`transition-colors ${isArchived ? 'bg-gray-50 hover:bg-gray-100' : 'hover:bg-gray-50'
@@ -75,16 +90,10 @@ const PanierRow = ({
             </td>
             <td className="px-6 py-4">
                 <div className="text-sm text-gray-900 font-medium">
-                    {(panier.totalTTC || 0).toLocaleString('fr-FR', {
-                        style: 'currency',
-                        currency: 'USD'
-                    })}
+                    {formatCurrency(panier.totalTTC || 0)}
                 </div>
                 <div className="text-xs text-gray-500">
-                    HT: {(panier.totalHT || 0).toLocaleString('fr-FR', {
-                        style: 'currency',
-                        currency: 'USD'
-                    })}
+                    HT: {formatCurrency(panier.totalHT || 0)}
                 </div>
             </td>
             <td className="px-6 py-4 text-right">

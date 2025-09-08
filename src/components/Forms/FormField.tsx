@@ -47,9 +47,9 @@ const FormField = ({
                     onChange={(e) => onChange(e.target.value)}
                     onBlur={onBlur}
                     className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-3 rounded-lg border transition-colors ${hasError
-                            ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-transparent'
-                            : 'border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                        }`}
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-transparent'
+                        : 'border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                    }`}
                     placeholder={placeholder}
                     maxLength={maxLength}
                     disabled={disabled}

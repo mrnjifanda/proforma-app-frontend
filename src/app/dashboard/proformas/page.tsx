@@ -94,9 +94,7 @@ export default function ProformasPage() {
     }
   }, [paginationInfo.limit]);
 
-  useEffect(() => {
-    fetchData(1);
-  }, []);
+  useEffect(() => { fetchData(1); }, []);
 
   // Filtrer les proformas avec useMemo pour optimiser les performances
   const filteredProformas = useMemo(() => {
@@ -348,6 +346,21 @@ export default function ProformasPage() {
       default: return 0;
     }
   };
+
+  const handleConditionsUpdate = useCallback((data: { conditions: string, _id: string }) => {
+    console.log(data);
+    setProformas(prev => prev.map(p =>
+        p._id === data._id 
+            ? { ...p, conditions: data.conditions }
+            : p
+    ));
+
+    setPreviewProforma(prev => 
+        prev && prev._id === data._id 
+            ? { ...prev, conditions: data.conditions }
+            : prev
+    );
+}, []);
 
   if (isLoadingData) {
     return (
@@ -737,6 +750,7 @@ export default function ProformasPage() {
       {/* Modal d'aperçu */}
       {showPreviewModal && previewProforma && (
         <ProformaPreviewModal
+          key={previewProforma._id}
           proforma={previewProforma}
           entreprise={entreprise}
           isOpen={showPreviewModal}
@@ -745,6 +759,7 @@ export default function ProformasPage() {
           onGenerateAndDownloadPDF={() => generateAndDownloadPDF(previewProforma)}
           onSendByEmail={() => sendByEmail(previewProforma)}
           actionLoading={actionLoading}
+          onConditionsUpdate={handleConditionsUpdate}
         />
       )}
     </div>

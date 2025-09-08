@@ -1,8 +1,11 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Produit } from "@/utils/types";
-import { Check, ChevronDown, Star, AlertCircle, Package, FileText, DollarSign, Percent, Hash, Archive } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { Currency, FileInterface, Produit } from "@/utils/types";
+import { Check, ChevronDown, Star, AlertCircle, Package, FileText, DollarSign, Percent, Hash, Archive, Coins, Loader2 } from "lucide-react";
 import { toastError } from '@/utils/libs/toastify';
-import FormField from '../Forms/FormField';
+import FormField from '../../Forms/FormField';
+import { useAuth } from '@/utils/contexts/AuthContext';
+import currencyService from '@/api/currency.service';
+import FileUploader from '../../Forms/FileUploader';
 
 interface ProductFormProps {
     formData: Produit;
@@ -20,6 +23,7 @@ interface FormErrors {
     prixUnitaireHT?: string;
     tauxTVA?: string;
     stock?: string;
+    currency?: string;
 }
 
 const ProductForm = ({
@@ -31,9 +35,42 @@ const ProductForm = ({
     isLoading = false
 }: ProductFormProps) => {
 
+    const { entreprise } = useAuth();
     const [errors, setErrors] = useState<FormErrors>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [touched, setTouched] = useState<Record<string, boolean>>({});
+    const [currencies, setCurrencies] = useState<Currency[]>([]);
+    const [isLoadingCurrencies, setIsLoadingCurrencies] = useState(true);
+    const [uploadedFiles, setUploadedFiles] = useState<FileInterface[]>(formData.files || []);
+
+    useEffect(() => {
+        setIsLoadingCurrencies(true);
+        currencyService.getAll({
+            id: entreprise?._id
+        }).then(response => {
+
+            const currenciesData = response?.data?.data ?? [];
+            setCurrencies(currenciesData);
+
+            if (isEditing) {
+
+                const id = typeof formData.currency === "object" ? formData.currency._id : formData.currency;
+                const currencyExists = currenciesData.some((currency: Currency) => currency._id === id);
+                if (!currencyExists) {
+                    console.warn('La devise actuelle n\'existe pas dans les données reçues.');
+                    setFormData(prev => ({ ...prev, currency: '' }));
+                }
+            } else {
+                if (!formData.currency && currenciesData.length > 0) {
+                    setFormData(prev => ({ ...prev, currency: currenciesData[0]._id }));
+                }
+            }
+        }).catch(error => {
+            console.error('Erreur lors du chargement des devises:', error);
+        }).finally(() => {
+            setIsLoadingCurrencies(false);
+        });
+    }, [entreprise?.currency]);
 
     const validateField = useCallback((name: string, value: string | number | boolean): string => {
         switch (name) {
@@ -79,15 +116,23 @@ const ProductForm = ({
                 if (stock > 999999) return 'Le stock ne peut pas dépasser 999 999';
                 return '';
 
+            case 'currency':
+                const currencyStr = String(value);
+                if (!currencyStr.trim()) return 'La devise est obligatoire';
+                if (currencies.length > 0 && !currencies.some(c => c._id === currencyStr)) {
+                    return 'Veuillez sélectionner une devise valide';
+                }
+                return '';
+
             default:
                 return '';
         }
-    }, []);
+    }, [currencies]);
 
     // Validation complète du formulaire
     const validateForm = useCallback((): boolean => {
         const newErrors: FormErrors = {};
-        const fields = ['nom', 'reference', 'prixUnitaireHT', 'tauxTVA', 'stock'];
+        const fields = ['nom', 'reference', 'prixUnitaireHT', 'tauxTVA', 'stock', 'currency'];
 
         fields.forEach(field => {
             let fieldValue: string | number;
@@ -96,7 +141,7 @@ const ProductForm = ({
             } else {
                 fieldValue = formData[field as keyof Produit] as string || '';
             }
-            
+
             const error = validateField(field, fieldValue);
             if (error) newErrors[field as keyof FormErrors] = error;
         });
@@ -156,7 +201,7 @@ const ProductForm = ({
         if (isSubmitting || isLoading) return;
 
         // Marquer tous les champs comme touchés
-        const allFields = ['nom', 'reference', 'description', 'prixUnitaireHT', 'tauxTVA', 'stock'];
+        const allFields = ['nom', 'reference', 'description', 'prixUnitaireHT', 'tauxTVA', 'stock', 'currency'];
         setTouched(Object.fromEntries(allFields.map(field => [field, true])));
 
         if (!validateForm()) {
@@ -187,6 +232,11 @@ const ProductForm = ({
         return formData.prixUnitaireHT * (1 + formData.tauxTVA / 100);
     }, [formData.prixUnitaireHT, formData.tauxTVA]);
 
+    // Récupérer la devise sélectionnée
+    const selectedCurrency = useMemo(() => {
+        return currencies?.find((c) => c._id === formData.currency);
+    }, [currencies, formData.currency]);
+
     if (isLoading) {
         return (
             <div className="space-y-6 animate-pulse">
@@ -200,8 +250,8 @@ const ProductForm = ({
                         ))}
                     </div>
                     <div className="h-20 bg-gray-200 rounded-lg"></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {[...Array(2)].map((_, i) => (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[...Array(3)].map((_, i) => (
                             <div key={i}>
                                 <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
                                 <div className="h-12 bg-gray-200 rounded-lg"></div>
@@ -220,6 +270,30 @@ const ProductForm = ({
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-6">
+
+                <div className="">
+                    <FileUploader
+                        multiple={true}
+                        maxFileSize={10}
+                        acceptedTypes={['image/*']}
+                        onUploadSuccess={(files) => {
+                            setUploadedFiles(prev => [...prev, ...files]);
+                            setFormData(prev => ({
+                                ...prev,
+                                files: [...(prev.files || []), ...files]
+                            }));
+                        }}
+                        onUploadError={(error) => {
+                            toastError({ message: `Erreur d'upload : ${error}` });
+                        }}
+                        showPreview={true}
+                        existingFiles={formData.files || []}
+                        onFilesChange={(files) => {
+                            console.log('Fichiers sélectionnés (non uploadés) :', files);
+                        }}
+                    />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <FormField
                         label="Nom du produit"
@@ -282,16 +356,59 @@ const ProductForm = ({
                     disabled={isSubmitting || isLoading}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <div className="flex items-center">
+                                <Coins className="w-4 h-4 mr-2 text-gray-500" />
+                                Devise <span className="text-red-500">*</span>
+                            </div>
+                        </label>
+                        <div className="relative">
+                            {isLoadingCurrencies ? (
+                                <div className="w-full h-12 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-300">
+                                    <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+                                </div>
+                            ) : (
+                                <>
+                                    <select
+                                        value={(typeof formData.currency == 'object' ? formData.currency._id : formData.currency) || ''}
+                                        onChange={(e) => handleFieldChange('currency', e.target.value)}
+                                        onBlur={() => handleBlur('currency')}
+                                        className={`w-full pl-3 pr-10 py-3 rounded-lg border appearance-none transition-colors ${errors.currency && touched.currency
+                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                            : 'border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                                            } ${isSubmitting || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        required
+                                        disabled={isSubmitting || isLoading || isLoadingCurrencies}
+                                    >
+                                        <option value="">Sélectionner une devise</option>
+                                        {currencies.map((currency) => (
+                                            <option key={currency._id} value={currency._id}>
+                                                {currency.flag} {currency.name} ({currency.code}) - {currency.symbol}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-4 transform w-5 h-5 text-gray-400 pointer-events-none" />
+                                </>
+                            )}
+                        </div>
+                        {errors.currency && touched.currency && !isLoadingCurrencies && (
+                            <p className="mt-1 text-sm text-red-600">{errors.currency}</p>
+                        )}
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             <div className="flex items-center">
                                 <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
-                                Prix unitaire HT ($) <span className="text-red-500">*</span>
+                                Prix unitaire HT {selectedCurrency ? `(${selectedCurrency.symbol})` : ''} <span className="text-red-500">*</span>
                             </div>
                         </label>
                         <div className="relative">
-                            <span className="absolute left-3 top-3 transform text-gray-500">$</span>
+                            <span className="absolute left-3 top-3 transform text-gray-500">
+                                {selectedCurrency?.symbol || '$'}
+                            </span>
                             <input
                                 type="number"
                                 step="0.01"
@@ -300,11 +417,10 @@ const ProductForm = ({
                                 value={formData.prixUnitaireHT || ''}
                                 onChange={(e) => handleFieldChange('prixUnitaireHT', parseFloat(e.target.value) || 0)}
                                 onBlur={() => handleBlur('prixUnitaireHT')}
-                                className={`w-full pl-8 pr-4 py-3 rounded-lg border transition-colors ${
-                                    errors.prixUnitaireHT && touched.prixUnitaireHT
-                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                        : 'border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                                } ${isSubmitting || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`w-full pl-8 pr-4 py-3 rounded-lg border transition-colors ${errors.prixUnitaireHT && touched.prixUnitaireHT
+                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                    : 'border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                                    } ${isSubmitting || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 required
                                 disabled={isSubmitting || isLoading}
                                 placeholder="0.00"
@@ -327,11 +443,10 @@ const ProductForm = ({
                                 value={formData.tauxTVA}
                                 onChange={(e) => handleFieldChange('tauxTVA', parseFloat(e.target.value))}
                                 onBlur={() => handleBlur('tauxTVA')}
-                                className={`w-full pl-3 pr-8 py-3 rounded-lg border appearance-none transition-colors ${
-                                    errors.tauxTVA && touched.tauxTVA
-                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                        : 'border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
-                                } ${isSubmitting || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`w-full pl-3 pr-8 py-3 rounded-lg border appearance-none transition-colors ${errors.tauxTVA && touched.tauxTVA
+                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                    : 'border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+                                    } ${isSubmitting || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 required
                                 disabled={isSubmitting || isLoading}
                             >
@@ -341,7 +456,7 @@ const ProductForm = ({
                                 <option value={10}>10% (Taux intermédiaire)</option>
                                 <option value={20}>20% (Taux normal)</option>
                             </select>
-                            <ChevronDown className="absolute right-3 top-3 transform w-5 h-5 text-gray-400 pointer-events-none" />
+                            <ChevronDown className="absolute right-3 top-4 transform w-5 h-5 text-gray-400 pointer-events-none" />
                         </div>
                         {errors.tauxTVA && touched.tauxTVA && (
                             <p className="mt-1 text-sm text-red-600">{errors.tauxTVA}</p>
@@ -365,23 +480,40 @@ const ProductForm = ({
 
                 {/* Aperçu du prix */}
                 <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="col-span-1">
-                            <div className="text-sm font-medium text-indigo-800">Prix HT</div>
-                            <div className="text-lg font-bold">
-                                {(formData.prixUnitaireHT || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'USD' })}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="col-span-1">
+                                <div className="text-sm font-medium text-indigo-800">Devise</div>
+                                <div className="text-lg font-bold">
+                                    {selectedCurrency ? `${selectedCurrency.flag} ${selectedCurrency.code}` : 'Non sélectionnée'}
+                                </div>
+                            </div>
+                            <div className="col-span-1">
+                                <div className="text-sm font-medium text-indigo-800">Prix HT</div>
+                                <div className="text-lg font-bold">
+                                    {selectedCurrency
+                                        ? `${selectedCurrency.symbol} ${(formData.prixUnitaireHT || 0).toFixed(2)}`
+                                        : `$ ${(formData.prixUnitaireHT || 0).toFixed(2)}`
+                                    }
+                                </div>
                             </div>
                         </div>
-                        <div className="col-span-1">
-                            <div className="text-sm font-medium text-indigo-800">TVA</div>
-                            <div className="text-lg font-bold">
-                                {formData.tauxTVA}%
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="col-span-1">
+                                <div className="text-sm font-medium text-indigo-800">TVA</div>
+                                <div className="text-lg font-bold">
+                                    {formData.tauxTVA}%
+                                </div>
                             </div>
-                        </div>
-                        <div className="col-span-1">
-                            <div className="text-sm font-medium text-indigo-800">Prix TTC</div>
-                            <div className="text-xl font-bold text-indigo-600">
-                                {ttcPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' })}
+                            <div className="col-span-1">
+                                <div className="text-sm font-medium text-indigo-800">Prix TTC</div>
+                                <div className="text-xl font-bold text-indigo-600">
+                                    {selectedCurrency
+                                        ? `${selectedCurrency.symbol} ${ttcPrice.toFixed(2)}`
+                                        : `$ ${ttcPrice.toFixed(2)}`
+                                    }
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -430,12 +562,12 @@ const ProductForm = ({
                         {isSubmitting ? (
                             <>
                                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                {isEditing ? 'Mise à jour...' : 'Création...'}
+                                {isEditing ? 'Modification...' : 'Création...'}
                             </>
                         ) : (
                             <>
                                 <Check className="w-5 h-5 mr-2" />
-                                {isEditing ? 'Mettre à jour' : 'Créer le produit'}
+                                {isEditing ? 'Modifier' : 'Ajouter'}
                             </>
                         )}
                     </button>

@@ -787,3 +787,36 @@
 .backdrop-blur-sm {
   backdrop-filter: blur(4px);
 }
+
+/* Styles pour Quill */
+.ql-container {
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.ql-editor {
+  padding: 1rem;
+  min-height: 150px;
+}
+
+.ql-editor h1 { font-size: 1.5rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.ql-editor h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+.ql-editor h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+.ql-editor p { margin: 0.5rem 0; }
+.ql-editor strong { font-weight: 600; }
+.ql-editor em { font-style: italic; }
+.ql-editor span { line-height: inherit; }
+
+.ql-toolbar {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+.ql-container.ql-snow {
+  border: 1px solid #d1d5db;
+  border-top: none;
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+}

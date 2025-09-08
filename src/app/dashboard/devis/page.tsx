@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Panier, Client, PaginationInfo } from '@/utils/types';
+import { Panier, Client, PaginationInfo, PartialPanier } from '@/utils/types';
 import { Plus, Search, X, ShoppingCart, Filter, Grid, List, RefreshCw, AlertCircle, Download, TrendingUp, Eye } from "lucide-react";
 import panierService from '@/api/panier.service';
 import clientService from '@/api/client.service';
@@ -45,12 +45,13 @@ export default function PaniersPage() {
     totalPages: 1
   });
 
-  const defaultFormData = useMemo(() => ({
+  const defaultFormData: PartialPanier = useMemo(() => ({
     nom: '',
-    client: undefined as Client | undefined
+    client: undefined as Client | undefined,
+    currency: ''
   }), []);
 
-  const [formData, setFormData] = useState<{ nom: string; client?: Client }>(defaultFormData);
+  const [formData, setFormData] = useState<PartialPanier>(defaultFormData);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -101,9 +102,7 @@ export default function PaniersPage() {
     }
   }, [paginationInfo.limit]);
 
-  useEffect(() => {
-    fetchData(1);
-  }, []);
+  useEffect(() => { fetchData(1); }, []);
 
   // Filtrer les paniers avec useMemo pour optimiser les performances
   const filteredPaniers = useMemo(() => {
@@ -156,7 +155,8 @@ export default function PaniersPage() {
       setEditingPanier(panier);
       setFormData({
         nom: panier.nom || '',
-        client: typeof panier.client === 'object' ? panier.client : undefined
+        client: typeof panier.client === 'object' ? panier.client : undefined,
+        currency: panier.currency || ''
       });
     } else {
       setEditingPanier(null);
@@ -172,15 +172,21 @@ export default function PaniersPage() {
 
   const handleSubmit = useCallback(async () => {
     try {
-      // Validation basique
+
       if (!formData.nom.trim()) {
         toastError({ message: 'Le nom du panier est obligatoire.' });
         return;
       }
 
+      if (typeof formData.currency === "string" && !formData.currency.trim()) {
+        toastError({ message: 'La monnaie du panier est obligatoire.' });
+        return;
+      }
+
       const data = {
         nom: formData.nom.trim(),
-        client: formData.client?._id
+        client: formData.client?._id,
+        currency: typeof formData.currency === "object" ? formData.currency._id : formData.currency
       };
 
       if (editingPanier) {
@@ -233,8 +239,9 @@ export default function PaniersPage() {
     try {
 
       await panierService.update(panierToArchive._id!, {
-        nom: panierToArchive.nom ,
+        nom: panierToArchive.nom,
         client: panierToArchive.client?._id,
+        currency: typeof panierToArchive.currency === "object" ? panierToArchive.currency._id : panierToArchive.currency,
         statut: panierToArchive.statut === false ? true : false
       });
 

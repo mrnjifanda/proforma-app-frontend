@@ -1,3 +1,4 @@
+import { formatPrice, getCurrency } from "@/utils/helpers";
 import { Panier, Produit } from "@/utils/types";
 import { ShoppingCart, X, Package, Minus, Plus, CheckCircle, AlertCircle, Info, Tag, TrendingUp } from "lucide-react";
 
@@ -26,16 +27,22 @@ const AddToCartModal = ({
     onClose
 }: AddToCartModalProps) => {
 
+    const compatiblePaniers = paniers.filter(panier => {
+        const panierCurrencyCode = typeof panier.currency === 'string' ? panier.currency : panier.currency?.code;
+        const produitCurrencyCode = typeof produit.currency === 'string' ? produit.currency : produit.currency?.code;
+        return panierCurrencyCode === produitCurrencyCode;
+    });
+
     const ttcPrice = produit.prixUnitaireHT * (1 + produit.tauxTVA / 100);
     const totalPrice = ttcPrice * formData.quantite;
-    const selectedPanier = paniers.find(p => p._id === formData.panierId);
+    const selectedPanier = compatiblePaniers.find(p => p._id === formData.panierId);
 
     const isOutOfStock = produit.stock === 0;
     const isLowStock = produit.stock <= 10 && produit.stock > 0;
     const canAddQuantity = formData.quantite < produit.stock;
 
     return (
-        <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden">
+        <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden mx-auto">
             {/* En-tête avec gradient */}
             <div className="bg-blue-600 text-white p-6">
                 <div className="flex justify-between items-start">
@@ -82,11 +89,11 @@ const AddToCartModal = ({
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-4">
                                     <div className="text-xl font-bold text-blue-600">
-                                        {ttcPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                        {formatPrice(ttcPrice, getCurrency(produit.currency, 'code'))}
                                     </div>
                                     <div className="text-xs text-gray-500">TTC</div>
                                     <div className="text-xs text-gray-400">
-                                        HT: {produit.prixUnitaireHT.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                        HT: {formatPrice(produit.prixUnitaireHT, getCurrency(produit.currency, 'code'))}
                                     </div>
                                 </div>
                             </div>
@@ -132,9 +139,10 @@ const AddToCartModal = ({
                             onChange={e => onChange({ ...formData, panierId: e.target.value })}
                             className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 appearance-none bg-white"
                             required
+                            disabled={compatiblePaniers.length === 0}
                         >
                             <option value="">Sélectionnez un devis</option>
-                            {paniers.map((panier: Panier) => (
+                            {compatiblePaniers.map((panier: Panier) => (
                                 <option key={panier._id} value={panier._id}>
                                     {panier.nom}
                                 </option>
@@ -154,6 +162,14 @@ const AddToCartModal = ({
                             </div>
                         </div>
                     )}
+                    {compatiblePaniers.length === 0 && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                            <div className="flex items-center">
+                                <AlertCircle className="w-4 h-4 mr-2" />
+                                <span>Aucun devis disponible dans la devise <strong>{getCurrency(produit.currency, 'code')}</strong>.</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Sélection de la quantité */}
@@ -163,18 +179,18 @@ const AddToCartModal = ({
                         Quantité
                     </label>
 
-                    <div className="flex items-center justify-center bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center justify-center bg-gray-50 rounded-xl p-4 flex-wrap gap-4 md:gap-0">
                         <button
                             type="button"
                             onClick={() => onChange({ ...formData, quantite: Math.max(1, formData.quantite - 1) })}
                             disabled={formData.quantite <= 1 || isOutOfStock}
-                            className="p-3 border-2 border-gray-200 rounded-xl hover:bg-white hover:border-blue-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-50 disabled:hover:border-gray-200"
+                            className="p-2 md:p-3 border-2 border-gray-200 rounded-xl hover:bg-white hover:border-blue-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Minus className="w-5 h-5" />
+                            <Minus className="w-4 h-4 md:w-5 md:h-5" />
                         </button>
 
-                        <div className="mx-6 text-center">
-                            <div className="text-3xl font-bold text-gray-900">
+                        <div className="mx-2 md:mx-6 text-center">
+                            <div className="text-2xl md:text-3xl font-bold text-gray-900">
                                 {formData.quantite}
                             </div>
                             <div className="text-xs text-gray-500">unité{formData.quantite !== 1 ? 's' : ''}</div>
@@ -184,9 +200,9 @@ const AddToCartModal = ({
                             type="button"
                             onClick={() => onChange({ ...formData, quantite: Math.min(produit.stock, formData.quantite + 1) })}
                             disabled={!canAddQuantity || isOutOfStock}
-                            className="p-3 border-2 border-gray-200 rounded-xl hover:bg-white hover:border-blue-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-50 disabled:hover:border-gray-200"
+                            className="p-2 md:p-3 border-2 border-gray-200 rounded-xl hover:bg-white hover:border-blue-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Plus className="w-5 h-5" />
+                            <Plus className="w-4 h-4 md:w-5 md:h-5" />
                         </button>
                     </div>
 
@@ -205,25 +221,25 @@ const AddToCartModal = ({
                 </div>
 
                 {/* Récapitulatif du total */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl mb-6 border border-blue-100">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                            <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 md:p-4 rounded-xl mb-6 border border-blue-100">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div className="flex items-start md:items-center">
+                            <div className="bg-blue-100 p-2 rounded-lg mr-3 flex-shrink-0">
                                 <TrendingUp className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
                                 <div className="text-sm font-medium text-blue-800">Total TTC</div>
                                 <div className="text-xs text-blue-600">
-                                    {formData.quantite} × {ttcPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                                    {formData.quantite} × {formatPrice(ttcPrice, getCurrency(produit.currency, 'code'))}
                                 </div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <div className="text-2xl font-bold text-blue-600">
-                                {totalPrice.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        <div className="text-right min-w-0">
+                            <div className="text-xl md:text-2xl font-bold text-blue-600 whitespace-nowrap">
+                                {formatPrice(totalPrice, getCurrency(produit.currency, 'code'))}
                             </div>
-                            <div className="text-xs text-blue-500">
-                                HT: {(totalPrice / (1 + produit.tauxTVA / 100)).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                            <div className="text-xs text-blue-500 whitespace-nowrap">
+                                HT: {formatPrice((totalPrice / (1 + produit.tauxTVA / 100)), getCurrency(produit.currency, 'code'))}
                             </div>
                         </div>
                     </div>
@@ -262,9 +278,14 @@ const AddToCartModal = ({
                     </button>
                     <button
                         onClick={onAdd}
-                        disabled={isLoading || isOutOfStock || !formData.panierId || formData.quantite > produit.stock}
-                        className="flex-2 py-3 px-6 bg-blue-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 min-w-[140px]"
-                    >
+                        disabled={
+                            isLoading ||
+                            isOutOfStock ||
+                            !formData.panierId ||
+                            formData.quantite > produit.stock ||
+                            compatiblePaniers.length === 0
+                        }
+                        className="flex-1 py-3 px-4 md:px-6 bg-blue-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 md:min-w-[140px]"                    >
                         {isLoading ? (
                             <>
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
@@ -273,7 +294,7 @@ const AddToCartModal = ({
                         ) : (
                             <>
                                 <ShoppingCart className="w-5 h-5 mr-2" />
-                                Ajouter au devis
+                                Ajouter
                             </>
                         )}
                     </button>

@@ -3,7 +3,14 @@ import { AUTH_STORAGE_KEY } from '@/utils/constants'
 
 class ApiService {
 
+    baseURL = null;
+    apiKey = null;
+
     constructor(baseURL, apiKey) {
+
+        this.baseURL = baseURL;
+        this.apiKey = apiKey;
+
         this.client = axios.create({
             baseURL,
             headers: {
@@ -21,6 +28,14 @@ class ApiService {
 
     isBrowser() {
         return typeof window !== 'undefined';
+    }
+
+    getBaseUrl() {
+        return this.baseURL;
+    }
+
+    getApiKey() {
+        return this.apiKey;
     }
 
     getAuth() {

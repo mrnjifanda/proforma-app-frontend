@@ -16,11 +16,13 @@ export interface Produit {
     nom: string;
     description: string;
     prixUnitaireHT: number;
+    currency: Currency | string;
+    files?: FileInterface[];
     tauxTVA: number; // en pourcentage (ex: 20 pour 20%)
     stock: number;
     actif: boolean;
     __v?: string,
-    updated_at?: string;
+    updated_at?: Date;
     entreprise?: string;
     deleted_at?: string;
     created_at?: Date;
@@ -44,6 +46,7 @@ export interface Panier {
     lignes: LignePanier[];
     nom?: string;
     client?: Client;
+    currency?: Currency | string;
     totalHT?: number;
     totalTVA?: number;
     totalTTC?: number;
@@ -112,9 +115,20 @@ export interface User {
 export interface AuthContextType {
     entreprise: ConfigEntreprise | null;
     user: User | null;
+    setUser: (user: User | null) => void,
+    setEntreprise: (entreprise: ConfigEntreprise) => void,
     login: (email: string, password: string) => Promise<boolean>;
     logout: () => void;
     isLoading: boolean;
+}
+
+export interface Currency {
+    _id: string;
+    name: string;
+    code: string;
+    symbol: string;
+    flag: string;
+    rate: number;
 }
 
 export interface ConfigEntreprise {
@@ -125,6 +139,7 @@ export interface ConfigEntreprise {
     telephone: string;
     email: string;
     siret: string;
+    currency?: Currency[] | string[]
     tauxTVADefaut: number;
     couleurPrimaire: string;
     couleurSecondaire: string;
@@ -139,4 +154,24 @@ export interface PaginationInfo {
     limit: number;
     page: number;
     totalPages: number;
+}
+
+export interface FileInterface {
+    link: string;
+    type: string;
+    size: number;
+    filename: string;
+}
+
+export interface FileConfig {
+    identifier: string;
+    formats?: string[];
+    category?: string;
+    priority?: 'low' | 'medium' | 'high';
+}
+
+export interface PartialPanier {
+    nom: string;
+    client?: Client;
+    currency?: Currency | string
 }

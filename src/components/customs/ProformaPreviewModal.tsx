@@ -1,16 +1,25 @@
+'use client';
+
 import { Proforma, ConfigEntreprise } from "@/utils/types";
-import { X, Download, Send, Eye, Calendar, User, MapPin, Phone, Mail, Building, FileText, DollarSign } from "lucide-react";
+import { X, Download, Send, Eye, Calendar, User, MapPin, Phone, Mail, Building, FileText, DollarSign, Edit2, Save } from "lucide-react";
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import 'quill/dist/quill.snow.css';
+import Quill from 'quill';
+import { toastError, toastSuccess } from '@/utils/libs/toastify';
+import proformaService from "@/api/proforma.service";
+import { formatPrice, getCurrencyCode } from "@/utils/helpers";
 
 interface ProformaPreviewModalProps {
     proforma: Proforma;
     entreprise: ConfigEntreprise | null;
     isOpen: boolean;
+    actionLoading: string;
     onClose: () => void;
     onDownloadPDF: () => void;
     onGenerateAndDownloadPDF: () => void;
     onSendByEmail: () => void;
-    actionLoading: string;
+    onConditionsUpdate?: (data: { conditions: string, _id: string }) => void;
 }
 
 const ProformaPreviewModal = ({
@@ -21,12 +30,9 @@ const ProformaPreviewModal = ({
     onDownloadPDF,
     onGenerateAndDownloadPDF,
     onSendByEmail,
-    actionLoading
+    actionLoading,
+    onConditionsUpdate
 }: ProformaPreviewModalProps) => {
-
-    const formatCurrency = (amount: number): string => {
-        return amount.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' });
-    };
 
     const getStatusBadge = (status: Proforma['statut']) => {
         const variants = {
@@ -50,10 +56,49 @@ const ProformaPreviewModal = ({
         );
     };
 
+    const [isEditingConditions, setIsEditingConditions] = useState(false);
+    const [editorContent, setEditorContent] = useState(proforma.conditions || '');
+    const [isSavingConditions, setIsSavingConditions] = useState(false);
+
+    useEffect(() => {
+        if (!isEditingConditions) {
+            setEditorContent(proforma.conditions || '');
+        }
+    }, [proforma.conditions, isEditingConditions]);
+
     const isExpired = new Date(proforma.validite) < new Date();
     const isFasture = proforma.statut === 'accepte';
 
+    let currencyCode = 'USD';
+    if (typeof proforma?.panier === "object" && typeof proforma.panier?.currency === "object") {
+
+        currencyCode = getCurrencyCode(proforma.panier.currency);
+    }
+
     if (!isOpen) return null;
+
+    const handleSaveConditions = async () => {
+
+        if (!proforma._id) return;
+
+        setIsSavingConditions(true);
+        proformaService.update(proforma._id, {
+            conditions: editorContent,
+            statut: proforma.statut
+        })
+            .then(response => {
+                toastSuccess({ message: 'Conditions mises à jour avec succès !' });
+                setIsEditingConditions(false);
+                if (onConditionsUpdate) {
+                    onConditionsUpdate({ conditions: editorContent, _id: proforma._id as string });
+                }
+            }).catch(error => {
+                console.error('Erreur sauvegarde conditions:', error);
+                toastError({ message: 'Erreur lors de la sauvegarde des conditions.' });
+            }).finally(() => {
+                setIsSavingConditions(false);
+            });
+    };
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -66,7 +111,7 @@ const ProformaPreviewModal = ({
                                 <Eye className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-white">Aperçu {isFasture ? 'de la facture' : 'du proforma' }</h3>
+                                <h3 className="text-xl font-bold text-white">Aperçu {isFasture ? 'de la facture' : 'du proforma'}</h3>
                                 <p className="text-indigo-100 text-sm">{proforma.numero}</p>
                             </div>
                         </div>
@@ -175,10 +220,10 @@ const ProformaPreviewModal = ({
                                     <div className="bg-white rounded-xl p-6 shadow-sm border border-indigo-200">
                                         <div className="flex items-center justify-end space-x-2 mb-3">
                                             <FileText className="w-6 h-6 text-indigo-600" />
-                                            <h2 className="text-2xl font-bold text-gray-900">{isFasture ? 'FACTURE' : 'PROFORMA' }</h2>
+                                            <h2 className="text-2xl font-bold text-gray-900">{isFasture ? 'FACTURE' : 'PROFORMA'}</h2>
                                         </div>
                                         <p className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">
-                                            {isFasture ? proforma.numero.replace('PRO-', 'FAC-') : proforma.numero }
+                                            {isFasture ? proforma.numero.replace('PRO-', 'FAC-') : proforma.numero}
                                         </p>
                                         <div className="text-sm text-gray-600 space-y-1">
                                             <div>Date: {new Date().toLocaleDateString('fr-FR')}</div>
@@ -259,7 +304,7 @@ const ProformaPreviewModal = ({
                                                 </td>
                                                 <td className="px-6 py-4 text-center font-medium">{item.quantite}</td>
                                                 <td className="px-6 py-4 text-right font-medium">
-                                                    {formatCurrency(item.prixUnitaireHT)}
+                                                    {formatPrice(item.prixUnitaireHT, currencyCode)}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
@@ -267,10 +312,10 @@ const ProformaPreviewModal = ({
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-medium">
-                                                    {formatCurrency(item.totalLigneHT)}
+                                                    {formatPrice(item.totalLigneHT, currencyCode)}
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-bold">
-                                                    {formatCurrency(item.totalLigneTTC)}
+                                                    {formatPrice(item.totalLigneTTC, currencyCode)}
                                                 </td>
                                             </tr>
                                         ))}
@@ -291,20 +336,20 @@ const ProformaPreviewModal = ({
                                         <div className="flex justify-between items-center py-2">
                                             <span className="text-gray-600">Total HT:</span>
                                             <span className="font-semibold text-gray-900">
-                                                {formatCurrency(proforma.totalHT)}
+                                                {formatPrice(proforma.totalHT, currencyCode)}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center py-2">
                                             <span className="text-gray-600">Total TVA:</span>
                                             <span className="font-semibold text-gray-900">
-                                                {formatCurrency(proforma.totalTVA)}
+                                                {formatPrice(proforma.totalTVA, currencyCode)}
                                             </span>
                                         </div>
                                         <div className="border-t border-indigo-200 pt-3">
                                             <div className="flex justify-between items-center py-2">
                                                 <span className="text-lg font-bold text-gray-900">Total TTC:</span>
                                                 <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                                                    {formatCurrency(proforma.totalTTC)}
+                                                    {formatPrice(proforma.totalTTC, currencyCode)}
                                                 </span>
                                             </div>
                                         </div>
@@ -313,15 +358,103 @@ const ProformaPreviewModal = ({
                             </div>
                         </div>
 
-                        {/* Conditions */}
-                        {proforma.conditions && (
-                            <div className="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-200">
-                                <h4 className="font-bold text-gray-900 mb-3">Conditions générales</h4>
-                                <pre className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                                    {proforma.conditions}
-                                </pre>
+                        {/* Conditions Générales - Version éditable */}
+                        <div className="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-200">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="font-bold text-gray-900">Conditions générales</h4>
+                                {!isEditingConditions && (
+                                    <button
+                                        onClick={() => {
+                                            setEditorContent(proforma.conditions || '');
+                                            setIsEditingConditions(true);
+                                        }}
+                                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                                    >
+                                        <Edit2 className="w-4 h-4 mr-1" />
+                                        Modifier
+                                    </button>
+                                )}
                             </div>
-                        )}
+
+                            {isEditingConditions ? (
+                                <div className="space-y-4">
+                                    {/* Quill Editor Container */}
+                                    <div className="bg-white rounded-lg border border-gray-300">
+                                        <div
+                                            ref={(el) => {
+                                                if (el && !el.hasChildNodes()) {
+                                                    // Créer l'éditeur si pas encore créé
+                                                    const editor = document.createElement('div');
+                                                    el.appendChild(editor);
+
+                                                    const quill = new Quill(editor, {
+                                                        theme: 'snow',
+                                                        modules: {
+                                                            toolbar: [
+                                                                [{ 'header': [1, 2, 3, false] }],
+                                                                ['bold', 'italic'],
+                                                                [{ 'color': ['#000000', '#e60000', '#0066cc', '#009900'] }],
+                                                                [{ 'size': ['small', false, 'large'] }],
+                                                                ['clean']
+                                                            ],
+                                                        },
+                                                        placeholder: 'Saisissez les conditions générales...',
+                                                    });
+
+                                                    // Charger contenu initial
+                                                    quill.root.innerHTML = editorContent;
+
+                                                    // Écouter les changements
+                                                    quill.on('text-change', () => {
+                                                        setEditorContent(quill.root.innerHTML);
+                                                    });
+
+                                                    // Sauvegarder référence pour cleanup
+                                                    (el as any).quill = quill;
+                                                }
+                                            }}
+                                            style={{ minHeight: '200px' }}
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-end space-x-3">
+                                        <button
+                                            onClick={() => setIsEditingConditions(false)}
+                                            disabled={isSavingConditions}
+                                            className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            Annuler
+                                        </button>
+                                        <button
+                                            onClick={handleSaveConditions}
+                                            disabled={isSavingConditions}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2 disabled:opacity-50"
+                                        >
+                                            {isSavingConditions ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                    <span>Enregistrement...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Save className="w-4 h-4" />
+                                                    <span>Enregistrer</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                proforma.conditions ? (
+                                    <div
+                                        className="text-sm text-gray-700 leading-relaxed ql-editor"
+                                        dangerouslySetInnerHTML={{ __html: proforma.conditions }}
+                                    />
+                                ) : (
+                                    <p className="text-gray-500 italic">Aucune condition définie.</p>
+                                )
+                            )}
+                        </div>
 
                         {/* Signature Section */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mt-16">

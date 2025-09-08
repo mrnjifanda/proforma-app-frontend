@@ -14,7 +14,7 @@ export const configEntreprise: ConfigEntreprise = {
     nom: 'Screentech',
     logo: '/logo.png',
     adresse: 'Meydan road, Nad Al, Sheba, Dubai, UAE',
-    telephone: '+971566661051',
+    telephone: '+971 56 857 2272',
     email: 'contact@screentech.com',
     siret: '12345678901234',
     tauxTVADefaut: 20,

@@ -4,15 +4,16 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Panier, Produit, PaginationInfo, FilterProduct } from '@/utils/types';
 import produitService from '@/api/produit.service';
 import { Plus, Search, X, Package, Filter, Grid, List, RefreshCw, AlertCircle, Download, TrendingUp, Eye } from "lucide-react";
-import ProductCard from '@/components/customs/ProductCard';
-import ProductRow from '@/components/customs/ProductRow';
-import ProductForm from '@/components/customs/ProductForm';
-import AddToCartModal from '@/components/customs/AddToCartModal';
+import ProductCard from '@/components/customs/Product/ProductCard';
+import ProductRow from '@/components/customs/Product/ProductRow';
+import ProductForm from '@/components/customs/Product/ProductForm';
+import AddToCartModal from '@/components/customs/Product/AddToCartModal';
 import ConfirmationModal from '@/components/customs/ConfirmationModal';
 import Pagination from '@/components/customs/Pagination';
 import panierService from '@/api/panier.service';
 import { toastError, toastSuccess } from '@/utils/libs/toastify';
 import { FORMAT_DATE } from '@/utils/constants';
+import ProductDetail from '@/components/customs/Product/ProductDetail';
 
 export default function ProduitsPage() {
 
@@ -26,6 +27,8 @@ export default function ProduitsPage() {
     const [showAddToCartModal, setShowAddToCartModal] = useState(false);
     const [produitToDelete, setProduitToDelete] = useState<Produit | null>(null);
     const [selectedProduit, setSelectedProduit] = useState<Produit | null>(null);
+    const [selectedViewProduit, setSelectedViewProduit] = useState<Produit | null>(null);
+    const [isViewModalOpen, setIsViewModalOpen] = useState<boolean>(false);
     const [editingProduit, setEditingProduit] = useState<Produit | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -46,6 +49,8 @@ export default function ProduitsPage() {
         reference: '',
         _id: '',
         nom: '',
+        currency: '',
+        files: [],
         description: '',
         prixUnitaireHT: 0,
         tauxTVA: 20,
@@ -125,10 +130,10 @@ export default function ProduitsPage() {
 
             const matchesFilter =
                 activeFilter === 'all' ? true :
-                activeFilter === 'active' ? produit.actif :
-                activeFilter === 'inactive' ? !produit.actif :
-                activeFilter === 'low-stock' ? produit.stock <= 10 && produit.stock > 0 :
-                activeFilter === 'out-of-stock' ? produit.stock === 0 : true;
+                    activeFilter === 'active' ? produit.actif :
+                        activeFilter === 'inactive' ? !produit.actif :
+                            activeFilter === 'low-stock' ? produit.stock <= 10 && produit.stock > 0 :
+                                activeFilter === 'out-of-stock' ? produit.stock === 0 : true;
 
             return matchesSearch && matchesFilter;
         });
@@ -143,10 +148,10 @@ export default function ProduitsPage() {
         const totalValue = produits.reduce((sum, p) => sum + (p.prixUnitaireHT * p.stock), 0);
         const avgPrice = produits.length > 0 ? produits.reduce((sum, p) => sum + p.prixUnitaireHT, 0) / produits.length : 0;
 
-        return { 
-            activeProductsCount, 
+        return {
+            activeProductsCount,
             inactiveProductsCount,
-            lowStockProductsCount, 
+            lowStockProductsCount,
             outOfStockProductsCount,
             totalValue,
             avgPrice
@@ -160,6 +165,8 @@ export default function ProduitsPage() {
                 reference: produit.reference,
                 _id: produit._id,
                 nom: produit.nom,
+                currency: produit.currency,
+                files: produit.files ?? [],
                 description: produit.description || '',
                 prixUnitaireHT: produit.prixUnitaireHT,
                 tauxTVA: produit.tauxTVA,
@@ -273,7 +280,7 @@ export default function ProduitsPage() {
     const handleExport = useCallback(() => {
         try {
             const csvContent = [
-                ['Référence', 'Nom', 'Description', 'Prix HT', 'TVA (%)', 'Prix TTC', 'Stock', 'Statut', 'Date de création'].join(';'),
+                ['Référence', 'Nom', 'Description', 'Prix HT', 'TVA (%)', 'Prix TTC', 'Monnaie', 'Stock', 'Statut', 'Date de création'].join(';'),
                 ...filteredProduits.map(produit => [
                     produit.reference || '',
                     produit.nom,
@@ -281,6 +288,7 @@ export default function ProduitsPage() {
                     produit.prixUnitaireHT.toString(),
                     produit.tauxTVA.toString(),
                     (produit.prixUnitaireHT * (1 + produit.tauxTVA / 100)).toString(),
+                    produit.currency || '',
                     produit.stock.toString(),
                     produit.actif ? 'Actif' : 'Inactif',
                     produit.created_at ? FORMAT_DATE(produit.created_at) : ''
@@ -302,6 +310,12 @@ export default function ProduitsPage() {
             toastError({ message: 'Erreur lors de l\'export.' });
         }
     }, [filteredProduits]);
+
+    const handleView = useCallback((produit: Produit) => {
+
+        setSelectedViewProduit(produit);
+        setIsViewModalOpen(true);
+    }, []);
 
     // Réinitialiser la pagination lors du changement de filtre/recherche
     useEffect(() => {
@@ -377,8 +391,10 @@ export default function ProduitsPage() {
 
     return (
         <div className="space-y-6">
+
             {/* En-tête */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                         <Package className="w-6 h-6 mr-2 text-blue-600" />
@@ -400,6 +416,7 @@ export default function ProduitsPage() {
                         )}
                     </p>
                 </div>
+
                 <div className="flex gap-3 w-full md:w-auto flex-wrap">
                     {!isLoadingData && !error && produits.length > 0 && (
                         <>
@@ -465,7 +482,7 @@ export default function ProduitsPage() {
                         </div>
                     </div>
                 </div>
-                
+
                 <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4">
                     <div className="flex items-center justify-between">
                         <div>
@@ -592,9 +609,9 @@ export default function ProduitsPage() {
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                     Filtre: {
                                         activeFilter === 'active' ? 'Actifs seulement' :
-                                        activeFilter === 'inactive' ? 'Inactifs seulement' :
-                                        activeFilter === 'low-stock' ? 'Stock faible' :
-                                        activeFilter === 'out-of-stock' ? 'Rupture de stock' : ''
+                                            activeFilter === 'inactive' ? 'Inactifs seulement' :
+                                                activeFilter === 'low-stock' ? 'Stock faible' :
+                                                    activeFilter === 'out-of-stock' ? 'Rupture de stock' : ''
                                     }
                                     <button
                                         onClick={() => setActiveFilter('all')}
@@ -622,6 +639,7 @@ export default function ProduitsPage() {
                                     onDelete={() => openDeleteModal(produit)}
                                     onToggleActive={() => toggleActif(produit)}
                                     onAddToCart={() => openAddToCartModal(produit)}
+                                    onView={() => handleView(produit)}
                                 />
                             ))}
                         </div>
@@ -657,6 +675,7 @@ export default function ProduitsPage() {
                                                 onDelete={() => openDeleteModal(produit)}
                                                 onToggleActive={() => toggleActif(produit)}
                                                 onAddToCart={() => openAddToCartModal(produit)}
+                                                onView={() => handleView(produit)}
                                             />
                                         ))}
                                     </tbody>
@@ -758,6 +777,17 @@ export default function ProduitsPage() {
                         onChange={setFormAddLine}
                         onAdd={handleAddToCart}
                         onClose={() => setShowAddToCartModal(false)}
+                    />
+                </div>
+            )}
+
+            {/* Handler View Modal */}
+            {isViewModalOpen && selectedViewProduit && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <ProductDetail
+                        produit={selectedViewProduit}
+                        isOpen={isViewModalOpen}
+                        onClose={() => setIsViewModalOpen(false)}                        
                     />
                 </div>
             )}

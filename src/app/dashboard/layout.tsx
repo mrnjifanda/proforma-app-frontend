@@ -4,7 +4,7 @@ import { useAuth } from '@/utils/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { usePanier } from '@/utils/contexts/PanierContext';
-import { Home, Users, FileText, Store, Calculator, X, Menu, LogOut } from "lucide-react";
+import { Home, Users, FileText, Store, Calculator, X, Menu, LogOut, Settings } from "lucide-react";
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -60,6 +60,8 @@ export default function DashboardLayout({
         }
         return pathname.startsWith(href);
     };
+
+    const isParametres: boolean = pathname === '/dashboard/parametres/' || pathname === '/dashboard/parametres';
 
     if (isLoading) {
         return (
@@ -123,7 +125,7 @@ export default function DashboardLayout({
                                         className={`group flex items-center justify-between px-4 py-3.5 text-sm font-medium rounded-xl transition-all duration-200 ${isActive
                                             ? 'bg-gradient-to-r from-indigo-500 via-blue-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30 transform scale-[1.02]'
                                             : 'text-slate-700 hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 hover:text-indigo-600 hover:scale-[1.01] hover:shadow-sm'
-                                        }`}
+                                            }`}
                                     >
                                         <div className="flex items-center space-x-3">
                                             <div className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-indigo-600'
@@ -136,7 +138,7 @@ export default function DashboardLayout({
                                             <div className={`px-2.5 py-1 text-xs font-bold rounded-full transition-all duration-200 ${isActive
                                                 ? 'bg-white/20 text-white backdrop-blur-sm border border-white/30'
                                                 : 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-sm'
-                                            }`}>
+                                                }`}>
                                                 {totalItemsPanier}
                                             </div>
                                         )}
@@ -147,17 +149,39 @@ export default function DashboardLayout({
                     </ul>
                 </nav>
 
-                {/* User info en bas de la sidebar */}
+                {/* User info + Paramètres en bas de la sidebar */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-50/90 to-transparent backdrop-blur-sm">
-                    <div className="flex items-center space-x-3 p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/50">
-                        <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center shadow-md">
-                            <span className="text-sm font-bold text-white">
-                                {user.role.charAt(0).toUpperCase()}
-                            </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">{user.role}</p>
-                            <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                    <div className="space-y-3">
+                        <Link
+                            href="/dashboard/parametres"
+                            onClick={() => setSidebarOpen(false)}
+                            className={`flex items-center space-x-3 px-4 py-3.5 text-sm font-medium rounded-xl transition-all duration-200 group ${isParametres
+                                ? 'bg-gradient-to-r from-indigo-500 via-blue-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30 transform scale-[1.02]'
+                                : 'text-slate-700 hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 hover:text-indigo-600 hover:scale-[1.01] hover:shadow-sm'
+                            }`}
+                        >
+                            <div className={`transition-colors duration-200 ${isParametres
+                                ? 'text-white'
+                                : 'text-slate-500 group-hover:text-indigo-600'
+                            }`}>
+                                <Settings className="w-5 h-5" />
+                            </div>
+                            <span className="font-semibold">Paramètres</span>
+                        </Link>
+
+                        {/* Profil utilisateur */}
+                        <div className="flex items-center space-x-3 p-3 bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/50">
+                            <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center shadow-md">
+                                <span className="text-sm font-bold text-white">
+                                    {user.first_name?.charAt(0).toUpperCase() || user.role.charAt(0).toUpperCase()}
+                                </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-900 truncate">
+                                    {user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.role}
+                                </p>
+                                <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                            </div>
                         </div>
                     </div>
                 </div>

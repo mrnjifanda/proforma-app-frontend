@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useCallback } from 'react';
 import { ShoppingCart, Trash2, User, FileText, Package, ArrowLeft, FilePlus, Info, Save, RotateCcw } from "lucide-react";
-import { Panier } from '@/utils/types';
+import { Currency, Panier } from '@/utils/types';
 import { FORMAT_DATE } from '@/utils/constants';
 import TVASummary from './TVASummary';
 import LigneProduit from './LigneProduit';
@@ -11,14 +11,14 @@ import { toastError, toastInfo, toastSuccess } from '@/utils/libs/toastify';
 import ConfirmationModal from '@/components/customs/ConfirmationModal';
 import proformaService from '@/api/proforma.service';
 import panierService from '@/api/panier.service';
+import { deepClone, formatPrice, getCurrencyCode } from '@/utils/helpers';
 
 export default function PanierClientPage({ initialPanier }: { initialPanier: Panier }) {
 
     const router = useRouter();
     const [isLoadCreateProforma, setIsLoadCreateProforma] = useState<boolean>(false);
     const [panier, setPanier] = useState<Panier>(initialPanier);
-    const [originalPanier, setOriginalPanier] = useState<Panier>(() => JSON.parse(JSON.stringify(initialPanier)));
-    const [countLignes, setCountLignes] = useState<number>(initialPanier.lignes?.length ?? 0);
+    const [originalPanier, setOriginalPanier] = useState<Panier>(() => deepClone(initialPanier));    const [countLignes, setCountLignes] = useState<number>(initialPanier.lignes?.length ?? 0);
     const [hasModifications, setHasModifications] = useState<boolean>(false);
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [modifiedLines, setModifiedLines] = useState<Map<string, number>>(new Map());
@@ -28,6 +28,16 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
     const [showEmptyCartModal, setShowEmptyCartModal] = useState(false);
     const [showResetChangesModal, setShowResetChangesModal] = useState(false);
     const [productToDelete, setProductToDelete] = useState<string | null>(null);
+
+    // LinePanier states
+    const [produitEnErreur, setProduitEnErreur] = useState<{
+        produitId: string;
+        message: string;
+        type: 'STOCKINSUFFISANT' | 'INACTIF';
+    } | null>(null);
+
+    const currency = panier?.currency as Currency;
+    const currencyCode = getCurrencyCode(currency);
 
     const recalculateTotals = useCallback((updatedPanier: Panier) => {
         let totalHT = 0;
@@ -53,6 +63,10 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
     const handleQuantityChange = useCallback((produitId: string, newQuantity: number) => {
         if (!panier || newQuantity < 1) return;
 
+        if (produitEnErreur?.produitId === produitId) {
+            setProduitEnErreur(null);
+        }
+
         setPanier(prevPanier => {
             if (!prevPanier) return prevPanier;
 
@@ -72,7 +86,7 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
 
         setModifiedLines(prev => new Map(prev).set(produitId, newQuantity));
         setHasModifications(true);
-    }, [panier, recalculateTotals]);
+    }, [panier, recalculateTotals, produitEnErreur]);
 
     const handleRemoveProduct = useCallback((produitId: string) => {
         if (!panier) return;
@@ -147,17 +161,19 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
 
             const modificationsData = {
                 panierId: panier._id,
-                modifications: Array.from(modifiedLines.entries()).map(([produitId, quantite]) => ({
-                    id: produitId,
-                    quantite
-                }))
+                modifications: Array.from(modifiedLines.entries())
+                    .filter(([_, quantite]) => quantite > 0)
+                    .map(([produitId, quantite]) => ({
+                        id: produitId,
+                        quantite
+                    }))
             };
 
             await panierService.saveUpdate(panier._id, modificationsData);
 
             setModifiedLines(new Map());
             setHasModifications(false);
-            setOriginalPanier(JSON.parse(JSON.stringify(panier)));
+            setOriginalPanier(deepClone(panier));
             toastSuccess({ message: 'Modifications sauvegardées avec succès !' });
         } catch (error) {
             console.error('Error saving changes:', error);
@@ -183,37 +199,47 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
         setShowResetChangesModal(false);
     }, [hasModifications, originalPanier]);
 
-    const handleCreateProforma = useCallback(async () => {
+    const handleCreateProforma = useCallback(async (force: boolean = false) => {
 
         setIsLoadCreateProforma(true);
-        proformaService.create({ panierId: initialPanier._id })
+        proformaService.create({ panierId: initialPanier._id }, force)
             .then(response => {
                 toastSuccess({ message: "Proforma créé avec succès" });
                 router.push('/dashboard/proformas/')
             })
-            .catch(error => {
+            .catch(async error => {
 
                 if (error.response?.data?.message === 'A quote already exists in the cart') {
 
                     const shouldCreateNew = confirm('Un proforma existe déjà pour ce devis. Voulez-vous en créer un nouveau ?');
                     if (shouldCreateNew) {
-                        proformaService.create({ panierId: initialPanier._id }, true)
-                            .then(response => {
-                                toastSuccess({ message: "Nouveau proforma créé avec succès" });
-                                router.push('/dashboard/proformas/');
-                            })
-                            .catch(forceError => {
-                                toastError({ message: forceError.response?.data?.message || 'Erreur lors de la création du proforma' });
-                            })
-                            .finally(() => {
-                                setIsLoadCreateProforma(false);
-                            });
-                        return;
+                        await handleCreateProforma(true);
+                        return ;
                     } else {
                         toastInfo({ message: "Création de proforma annulée" });
                     }
                 } else {
-                    toastError({ message: error.response?.data?.message || 'Erreur lors de la création du proforma' });
+
+                    const data = error.response?.data?.data || null;
+                    const message = error.response?.data?.message || null;
+                    if (data?.errorCode === 'STOCKINSUFFISANT') {
+                        setProduitEnErreur({
+                            produitId: data.produitId,
+                            message: message || `Stock insuffisant. Disponible : ${data.stockDisponible}, demandé : ${data.quantiteDemandee}.`,
+                            type: 'STOCKINSUFFISANT'
+                        });
+                        toastError({ message: message });
+                    } else if (data?.errorCode === 'INACTIF') {
+                        setProduitEnErreur({
+                            produitId: data.produitId,
+                            message: `Le produit "${data.produitNom}" est désactivé.`,
+                            type: 'INACTIF'
+                        });
+                        toastError({ message: `Le produit "${data.produitNom}" est désactivé.` });
+                    } else {
+                        toastError({ message: error.response?.data?.message || 'Erreur inconnue lors de la création.' });
+                    }
+                    return;
                 }
             })
             .finally(() => {
@@ -305,8 +331,10 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
                                 <LigneProduit
                                     key={ligne.produit._id}
                                     ligne={ligne}
+                                    currencyCode={currencyCode}
                                     onQuantityChange={(newQty) => handleQuantityChange(ligne.produit._id, newQty)}
                                     onRemove={() => handleRemoveProduct(ligne.produit._id)}
+                                    erreurProduit={produitEnErreur?.produitId === ligne.produit._id ? produitEnErreur : undefined}
                                 />
                             ))
                         ) : (
@@ -347,14 +375,14 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">Sous-total HT:</span>
                                     <span className="font-medium">
-                                        {panier?.totalHT?.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' })}
+                                        {formatPrice(panier?.totalHT as number, currencyCode)}
                                     </span>
                                 </div>
 
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">TVA:</span>
                                     <span className="font-medium">
-                                        {panier?.totalTVA?.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' })}
+                                        {formatPrice(panier?.totalTVA as number, currencyCode)}
                                     </span>
                                 </div>
 
@@ -362,15 +390,13 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
                                     <div className="flex justify-between">
                                         <span className="text-lg font-semibold text-gray-900">Total TTC:</span>
                                         <span className="text-xl font-bold text-blue-600">
-                                            {panier?.totalTTC?.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' })}
+                                            {formatPrice(panier?.totalTTC as number, currencyCode)}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {countLignes > 0 && (
-                                <TVASummary lignes={panier?.lignes ?? []} />
-                            )}
+                            {countLignes > 0 && ( <TVASummary lignes={panier.lignes} /> )}
 
                             <div className="pt-4 space-y-3">
                                 <button
@@ -383,7 +409,7 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
 
                                 {countLignes > 0 && (
                                     <button
-                                        onClick={handleCreateProforma}
+                                        onClick={() => handleCreateProforma(false)}
                                         className="relative w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-3 justify-center transition-colors"
                                     >
                                         {isLoadCreateProforma ? (
@@ -412,6 +438,12 @@ export default function PanierClientPage({ initialPanier }: { initialPanier: Pan
                                     <div className="flex justify-between">
                                         <span>Articles totaux:</span>
                                         <span>{panier?.lignes.reduce((acc, ligne) => acc + ligne.quantite, 0) ?? 0}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Devise:</span>
+                                        <span>
+                                            {currency.flag} {currency.name} ({currency.code}) - {currency.symbol}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Produits différents:</span>
