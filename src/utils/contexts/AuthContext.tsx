@@ -30,7 +30,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     entreprise: auth.entreprise
                 }).then(data => {
 
-                    console.log(data);
                     setUser(auth.user);
                     setEntreprise(auth.entreprise);
 

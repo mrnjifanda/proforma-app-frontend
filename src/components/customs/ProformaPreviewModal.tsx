@@ -8,7 +8,7 @@ import 'quill/dist/quill.snow.css';
 import Quill from 'quill';
 import { toastError, toastSuccess } from '@/utils/libs/toastify';
 import proformaService from "@/api/proforma.service";
-import { formatPrice, getCurrencyCode } from "@/utils/helpers";
+import { formatPrice, getCurrencyCode, getLogoLink } from "@/utils/helpers";
 
 interface ProformaPreviewModalProps {
     proforma: Proforma;
@@ -179,7 +179,7 @@ const ProformaPreviewModal = ({
                                         {entreprise?.logo && (
                                             <div className="flex-shrink-0">
                                                 <Image
-                                                    src={entreprise.logo}
+                                                    src={getLogoLink(entreprise.logo)}
                                                     alt={`Logo de ${entreprise.nom}`}
                                                     width={80}
                                                     height={80}

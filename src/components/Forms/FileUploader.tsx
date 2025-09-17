@@ -262,10 +262,11 @@ const FileUploader = ({
 
     // Traiter les fichiers sélectionnés
     const processFiles = useCallback(async (fileList: FileList | File[]) => {
+
         const newFiles: FileWithPreview[] = [];
         const filesArray = Array.from(fileList);
-
         const totalFiles = files.length + existingDisplayFiles.length + filesArray.length;
+
         if (totalFiles > maxFiles) {
             onUploadError?.(`Vous ne pouvez télécharger que ${maxFiles} fichier(s) au maximum`);
             return;
@@ -277,14 +278,6 @@ const FileUploader = ({
                 console.error('Fichier invalide reçu :', file);
                 return null;
             }
-
-            // DEBUG
-            console.log('Fichier original :', {
-                name: file.name,
-                type: file.type,
-                size: file.size,
-                isFile: file instanceof File
-            });
 
             const error = validateSingleFile(file as File);
             let preview: string | undefined = undefined;

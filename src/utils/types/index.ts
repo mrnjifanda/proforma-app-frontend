@@ -104,6 +104,7 @@ export interface Devis {
 }
 
 export interface User {
+    _id?: string;
     id: string;
     last_name: string | null;
     first_name: string | null;
@@ -134,7 +135,7 @@ export interface Currency {
 export interface ConfigEntreprise {
     _id?: string;
     nom: string;
-    logo: string;
+    logo: string | FileInterface[];
     adresse: string;
     telephone: string;
     email: string;
@@ -143,6 +144,7 @@ export interface ConfigEntreprise {
     tauxTVADefaut: number;
     couleurPrimaire: string;
     couleurSecondaire: string;
+    conditions?: string;
 }
 
 export type LoadingState = 'loading' | 'success' | 'error' | 'not-found';

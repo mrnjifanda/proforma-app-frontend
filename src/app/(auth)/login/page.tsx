@@ -6,6 +6,7 @@ import { useAuth } from '@/utils/contexts/AuthContext';
 import { Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import { configEntreprise } from '@/utils/constants';
+import { getLogoLink } from '@/utils/helpers';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -60,7 +61,7 @@ export default function LoginPage() {
                             {/* Logo avec effet de lueur */}
                             <div className="mx-auto w-20 h-20 flex items-center justify-center mb-6 relative">
                                 <Image
-                                    src={configEntreprise.logo}
+                                    src={getLogoLink(configEntreprise.logo)}
                                     alt="Logo de l'entreprise"
                                     width={80}
                                     height={80}

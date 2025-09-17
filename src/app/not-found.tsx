@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { configEntreprise } from '@/utils/constants';
 import Image from 'next/image';
+import { getLogoLink } from '@/utils/helpers';
 
 export default function Interactive404() {
     const [displayedText, setDisplayedText] = useState('');
@@ -35,7 +36,7 @@ export default function Interactive404() {
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-flex items-center text-indigo-600 font-semibold text-lg mb-8">
                         <Image
-                            src={configEntreprise.logo}
+                            src={getLogoLink(configEntreprise.logo)}
                             alt={configEntreprise.nom}
                             width={100}
                             height={100}

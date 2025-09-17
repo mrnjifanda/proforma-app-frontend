@@ -1,4 +1,4 @@
-import { Currency } from "../types";
+import { Currency, FileInterface } from "../types";
 
 export function validateId(id: string | null): string | null {
     if (!id || typeof id !== 'string') return null;
@@ -45,3 +45,7 @@ export const deepClone = <T>(obj: T): T => {
     }
     return obj;
 };
+
+export const getLogoLink = (logo: string | FileInterface[]): string => {
+    return typeof logo === "string" ? logo : logo[0].link;
+}

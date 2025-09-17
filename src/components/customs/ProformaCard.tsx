@@ -49,7 +49,15 @@ const ProformaCard = ({
     };
 
     const formatCurrency = (amount: number): string => {
-        return amount.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' });
+        let currency = 'USD';
+        if (
+            typeof proforma.panier === "object" &&
+            typeof proforma.panier.currency === "object" &&
+            "code" in proforma.panier.currency
+        ) {
+            currency = proforma.panier.currency.code;
+        }
+        return amount.toLocaleString('fr-FR', { style: 'currency', currency: currency });
     };
 
     return (
